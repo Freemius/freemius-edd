@@ -113,3 +113,4 @@
 	define( 'WP_FS__LOWEST_PRIORITY', 999999999 );
 
 	define ( 'WP_FS__WEBHOOK_ENDPOINT', 'freemius' );
+	define ( 'WP_FS__OPTIONS_OPTION_NAME', 'fs_commerce_addon' );
