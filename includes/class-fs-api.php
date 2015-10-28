@@ -21,7 +21,7 @@
 		/**
 		 * @var FS_Api[]
 		 */
-		private static $_instances = array();
+		protected static $_instances = array();
 
 		/**
 		 * @var FS_Option_Manager Freemius options, options-manager.
@@ -39,11 +39,6 @@
 		private $_api;
 
 		/**
-		 * @var number
-		 */
-		private $_context_plugin_id;
-
-		/**
 		 * @param string      $scope      'developer', 'plugin', 'user' or 'install'.
 		 * @param number      $id         Element's id.
 		 * @param string      $public_key Public key.
@@ -57,7 +52,7 @@
 
 			if ( ! isset( self::$_instances[ $identifier ] ) ) {
 				if ( 0 === count( self::$_instances ) ) {
-					self::_init();
+					self::init();
 				}
 
 				self::$_instances[ $identifier ] = new FS_Api( $scope, $id, $public_key, $secret_key, $is_sandbox );
@@ -66,7 +61,7 @@
 			return self::$_instances[ $identifier ];
 		}
 
-		private static function _init() {
+		protected static function init() {
 			if ( ! class_exists( 'Freemius_Api' ) ) {
 				require_once( dirname( __FILE__ ) . '/sdk/Freemius.php' );
 			}
@@ -133,11 +128,7 @@
 		 * @return array|mixed|string|void
 		 */
 		private function _call( $path, $method = 'GET', $params = array(), $retry = false ) {
-			$modified_path = isset($this->_context_plugin_id) ?
-				'/plugins/' . $this->_context_plugin_id . '/' . ltrim($path, '/') :
-				$path;
-
-			$result = $this->_api->Api( $modified_path, $method, $params );
+			$result = $this->_api->Api( $path, $method, $params );
 
 			if ( null !== $result &&
 			     isset( $result->error ) &&
@@ -265,17 +256,5 @@
 		function is_error( $result ) {
 			return ( is_object( $result ) && isset( $result->error ) ) ||
 			       is_string( $result );
-		}
-
-		/**
-		 * Set context plugin to be added in all requests.
-		 *
-		 * @author Vova Feldman (@svovaf)
-		 * @since  1.0.0
-		 *
-		 * @param number $id
-		 */
-		function set_context_plugin( $id ) {
-			$this->_context_plugin_id = $id;
 		}
 	}
