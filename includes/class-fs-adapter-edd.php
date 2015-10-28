@@ -68,11 +68,11 @@
 			// TODO: Implement create_customer() method.
 		}
 
-		function create_payment( FS_Payment $fs_payment ) {
+		function create_payment( FS_Payment $fs_payment, FS_User $fs_user ) {
 			// TODO: Implement create_payment() method.
 		}
 
-		function refund_payment( FS_Payment $fs_refund ) {
+		function refund_payment( FS_Payment $fs_refund, FS_User $fs_user ) {
 			// TODO: Implement refund_payment() method.
 		}
 

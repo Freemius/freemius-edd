@@ -14,6 +14,8 @@
 		 */
 		abstract function get_entity_mapper();
 
+		abstract function get_fs_api();
+
 		#region Licensing -------------------------------------------------
 
 		abstract function get_license( FS_License $fs_license );
@@ -38,9 +40,9 @@
 
 		#region Payments -------------------------------------------------
 
-		abstract function create_payment( FS_Payment $fs_payment );
+		abstract function create_payment( FS_Payment $fs_payment, FS_User $fs_user );
 
-		abstract function refund_payment( FS_Payment $fs_refund );
+		abstract function refund_payment( FS_Payment $fs_refund, FS_User $fs_user );
 
 		#endregion Payments -------------------------------------------------
 
