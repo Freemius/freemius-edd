@@ -10,6 +10,9 @@
 		exit;
 	}
 
+	define( 'WP_FS__SLUG', 'freemius-edd' );
+	define( 'WP_FS__COMMERCE_NAME', 'EDD' );
+
 	if ( ! defined( 'WP_FS__DEV_MODE' ) ) {
 		define( 'WP_FS__DEV_MODE', true );
 	}

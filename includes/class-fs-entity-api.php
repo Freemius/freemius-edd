@@ -85,6 +85,20 @@
 		 * @author Vova Feldman (@svovaf)
 		 * @since  1.0.0
 		 *
+		 * @return false|FS_Developer
+		 */
+		function get_developer( ) {
+			$developer = $this->get();
+
+			return parent::is_error($developer) ?
+				false :
+				new FS_Developer($developer);
+		}
+
+		/**
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 *
 		 * @param number $id
 		 *
 		 * @return false|FS_Event

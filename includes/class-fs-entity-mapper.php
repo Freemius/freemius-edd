@@ -38,7 +38,7 @@
 		private static function get_table_name() {
 			global $wpdb;
 
-			return trim( $wpdb->prefix . '_' . WP_FS__ENTITY_MAP_TABLE, '_' );
+			return trim( $wpdb->prefix . WP_FS__ENTITY_MAP_TABLE, '_' );
 		}
 
 		/**

@@ -41,15 +41,26 @@
 		private $_developer;
 
 		/**
+		 * @var string MD5 random token.
+		 */
+		private $_token;
+
+		/**
+		 * @var string
+		 */
+		private $_menu_slug;
+
+		/**
 		 * @author Vova Feldman (@svovaf)
 		 * @since  1.0.0
 		 *
 		 * @param FS_Adapter_Abstract $adapter
 		 */
-		function __construct( FS_Adapter_Abstract $adapter ) {
-			$this->_adapter = $adapter;
+		function __construct( FS_Adapter_Abstract $adapter, $menu_slug ) {
+			$this->_adapter   = $adapter;
+			$this->_menu_slug = $menu_slug;
 
-			$this->_options = FS_Option_Manager::get_manager( $this->_adapter->name() . '-webhook-options' );
+			$this->_options = FS_Option_Manager::get_manager( $this->_adapter->name() . '-webhook-options', true );
 
 			$this->init_hooks();
 		}
@@ -63,8 +74,11 @@
 		private function init_hooks() {
 			register_activation_hook( $this->find_caller_plugin_file(), array( &$this, '_plugin_activation' ) );
 
-			add_action( 'init', array( &$this, 'add_endpoint' ) );
+			add_action( 'init', array( &$this, '_add_endpoint' ) );
 			add_action( 'template_redirect', array( $this, 'process_request' ), - 1 );
+			add_action( 'wp_ajax_fs_get_secure_token', array( &$this, '_random_token_ajax_callback' ) );
+			add_action( 'admin_menu', array( &$this, '_add_submenu' ), 99999999 );
+			add_action( 'admin_notices', array( $this, '_notices' ) );
 //			add_filter( 'query_vars', array( $this, 'query_vars' ) );
 		}
 
@@ -85,7 +99,7 @@
 		 * @since  1.0.0
 		 */
 		private function flush_rewrite_rules() {
-			$this->add_endpoint();
+			$this->_add_endpoint();
 			flush_rewrite_rules();
 		}
 
@@ -95,7 +109,7 @@
 		 * @author Vova Feldman (@svovaf)
 		 * @since  1.0.0
 		 */
-		private function add_endpoint() {
+		function _add_endpoint() {
 			add_rewrite_endpoint( WP_FS__WEBHOOK_ENDPOINT, EP_ROOT );
 		}
 
@@ -120,8 +134,8 @@
 				// substr is used to prevent cases where a includes folder appears
 				// in the path. For example, if WordPress is installed on:
 				//  /var/www/html/some/path/includes/path/wordpress/wp-content/...
-				( false !== strpos( substr( wp_normalize_path( $bt[ $i ]['file'] ), $abs_path_length ), '/includes/' ) ||
-				  wp_normalize_path( dirname( dirname( $bt[ $i ]['file'] ) ) ) !== wp_normalize_path( WP_PLUGIN_DIR ) )
+				( false !== strpos( substr( fs_normalize_path( $bt[ $i ]['file'] ), $abs_path_length ), '/includes/' ) ||
+				  fs_normalize_path( dirname( dirname( $bt[ $i ]['file'] ) ) ) !== fs_normalize_path( WP_PLUGIN_DIR ) )
 			) {
 				$i ++;
 			}
@@ -154,8 +168,6 @@
 		 */
 		private function require_entities_files() {
 			require_once WP_FS__DIR_INCLUDES . '/entities/class-fs-event.php';
-			require_once WP_FS__DIR_INCLUDES . '/entities/class-fs-scope-entity.php';
-			require_once WP_FS__DIR_INCLUDES . '/entities/class-fs-developer.php';
 			require_once WP_FS__DIR_INCLUDES . '/entities/class-fs-user.php';
 			require_once WP_FS__DIR_INCLUDES . '/entities/class-fs-install.php';
 			require_once WP_FS__DIR_INCLUDES . '/entities/class-fs-license.php';
@@ -163,6 +175,8 @@
 			require_once WP_FS__DIR_INCLUDES . '/entities/class-fs-pricing.php';
 			require_once WP_FS__DIR_INCLUDES . '/entities/class-fs-subscription.php';
 		}
+
+		#region Developer Info
 
 		/**
 		 * Lazy load of developer.
@@ -172,13 +186,199 @@
 		 *
 		 * @return FS_Developer
 		 */
-		private function get_developer() {
+		function get_developer() {
 			if ( ! isset( $this->_developer ) ) {
-				$this->_developer = $this->_options->get_option( 'developer' );
+				$this->_developer = $this->_options->get_option( 'developer', new FS_Developer() );
 			}
 
 			return $this->_developer;
 		}
+
+		/**
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 *
+		 * @param number $id
+		 * @param string $public_key
+		 * @param string $secret_key
+		 */
+		private function update_developer( $id, $public_key, $secret_key ) {
+			// Override info.
+			$this->get_developer();
+			$this->_developer->id         = $id;
+			$this->_developer->public_key = $public_key;
+			$this->_developer->secret_key = $secret_key;
+
+			// Test credentials.
+			$fs_api    = $this->get_api();
+			$developer = $fs_api->get_developer();
+
+			if ( ! is_object( $developer ) ) {
+				// Request failed, bad credentials.
+				$this->_notices[] = array(
+					'message' => __fs( 'bad-credentials' ),
+					'title'   => __fs( 'oops' ) . '...',
+					'type'    => 'error',
+				);
+			} else {
+				$this->_notices[] = array(
+					'message' => __fs( 'credentials-validate' ),
+					'title'   => sprintf( __fs( 'congrats-x' ), $developer->first ) . '!',
+					'type'    => 'success',
+				);
+
+				$this->_developer = $developer;
+
+				// Store new details.
+				$this->_options->set_option( 'developer', $this->_developer, true );
+			}
+		}
+
+		/**
+		 * Check if connected to Freemius with valid API credentials.
+		 *
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 *
+		 * @return bool
+		 */
+		function is_connected() {
+			$dev = $this->get_developer();
+
+			return isset( $dev->email );
+		}
+
+		#endregion Developer Info
+
+		#region Token
+
+		/**
+		 * Generates secure token, echo the token and exit script.
+		 *
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 */
+		function _random_token_ajax_callback() {
+			$token = $this->generate_token();
+			echo $token;
+			exit;
+		}
+
+		/**
+		 * Generates pretty decent security token.
+		 *
+		 * Note: To create cryptographically secure token openssl must be installed on the server.
+		 *
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 *
+		 * @return string
+		 */
+		private function generate_token() {
+			$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+			$key         = '';
+			$chars_count = strlen( $chars );
+			for ( $i = 0; $i < 64; $i ++ ) {
+				$key .= substr( $chars, fs_crypto_rand_secure( 0, $chars_count - 1 ), 1 );
+			}
+
+			return $key;
+		}
+
+		/**
+		 * Lazy load of token. If not exist, generate one.
+		 *
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 *
+		 * @return string
+		 */
+		function get_token() {
+			if ( ! isset( $this->_token ) ) {
+				$this->_token = $this->_options->get_option( 'token' );
+
+				if ( ! is_string( $this->_token ) ) {
+					$this->_token = $this->generate_token();
+
+					// Store token.
+					$this->_options->set_option( 'token', $this->_token, true );
+				}
+			}
+
+			return $this->_token;
+		}
+
+		#endregion Token
+
+		#region Admin Settings
+
+		private $_notices = array();
+
+		/**
+		 * Render all admin notices added by webhook.
+		 *
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 */
+		function _notices() {
+			foreach ( $this->_notices as $notice ) {
+				fs_require_template( 'admin-notice.php', $notice );
+			}
+		}
+
+		/**
+		 * Add Freemius submenu item.
+		 *
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 */
+		function _add_submenu() {
+			// Add Freemius submenu item.
+			$hook = add_submenu_page(
+				$this->_menu_slug,
+				'Freemius',
+				'Freemius',
+				'manage_options',
+				WP_FS__SLUG,
+				array( &$this, '_admin_settings' )
+			);
+
+			add_action( "load-$hook", array( &$this, '_save_settings' ) );
+		}
+
+		/**
+		 * Handle API credentials update.
+		 *
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 */
+		function _save_settings() {
+			if ( ! fs_request_is_action( 'save_settings' ) ) {
+				return;
+			}
+
+			check_admin_referer( 'save_settings' );
+
+			$this->update_developer(
+				fs_request_get( 'fs_id' ),
+				fs_request_get( 'fs_public_key' ),
+				fs_request_get( 'fs_secret_key' )
+			);
+		}
+
+		/**
+		 * Renders Freemius settings page.
+		 *
+		 * @author Vova Feldman (@svovaf)
+		 * @since  1.0.0
+		 */
+		function _admin_settings() {
+			$params = array( 'webhook' => $this );
+			fs_require_template( 'settings.php', $params );
+		}
+
+		#endregion Admin Settings
 
 		private function has_plugin( $id ) {
 			return true;
@@ -190,15 +390,16 @@
 		 * @author Vova Feldman (@svovaf)
 		 * @since  1.0.0
 		 *
-		 * @return FS_Api
+		 * @return FS_Entity_Api
 		 */
 		private function get_api() {
 			if ( ! isset( $this->_api ) ) {
 				require_once WP_FS__DIR_INCLUDES . '/class-fs-api.php';
+				require_once WP_FS__DIR_INCLUDES . '/class-fs-entity-api.php';
 
 				$developer = $this->get_developer();
 
-				$this->_api = FS_Api::instance(
+				$this->_api = FS_Entity_Api::instance(
 					$developer->get_type(),
 					$developer->id,
 					$developer->public_key,

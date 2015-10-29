@@ -27,14 +27,36 @@
 		require_once dirname( __FILE__ ) . '/start.php';
 
 		// Include EDD driver.
-		require_once WP_FS__DIR_INCLUDES . '/class-fs-driver-edd.php';
+		require_once WP_FS__DIR_INCLUDES . '/class-fs-adapter-edd.php';
 
 		class FS_EDD {
+			private $_webhook;
+
 			function __construct() {
-				new FS_Webhook( new FS_Driver_EDD() );
+				$adapter = new FS_Adapter_EDD();
+
+				$this->_webhook = new FS_Webhook(
+					$adapter,
+					'edit.php?post_type=download'
+				);
+
+				$this->hooks();
 			}
+
+			private function hooks() {
+
+			}
+
+
+
+
 		}
 
-		// Init EDD webhook processor.
-		new FS_EDD();
+
+		function fs_edd_init() {
+			// Init EDD webhook processor.
+			new FS_EDD();
+		}
+
+		add_action( 'plugins_loaded', 'fs_edd_init' );
 	}

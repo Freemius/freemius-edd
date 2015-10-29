@@ -85,7 +85,7 @@
 		 *
 		 * @internal param \Freemius $freemius
 		 */
-		private function __construct( $scope, $id, $public_key, $secret_key, $is_sandbox ) {
+		protected function __construct( $scope, $id, $public_key, $secret_key, $is_sandbox ) {
 			$this->_api = new Freemius_Api( $scope, $id, $public_key, $secret_key, $is_sandbox );
 		}
 

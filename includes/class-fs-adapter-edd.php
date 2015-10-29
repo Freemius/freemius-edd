@@ -16,6 +16,10 @@
 			return $this->_mapper;
 		}
 
+		function get_fs_api() {
+			// TODO: Implement get_fs_api() method.
+		}
+
 		/**
 		 * Load local license by FS license.
 		 *
