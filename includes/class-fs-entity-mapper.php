@@ -44,14 +44,26 @@
 		/**
 		 * Create custom table for optimized performance.
 		 *
-		 *  - Table indexes are intentionally using DESC order since usually the scope of actions related to the last
-		 *  inserted records.
+		 *  [ - Table indexes are intentionally using DESC order since usually the scope of actions related to the last
+		 *  inserted records. ] - DEPRECATED
+		 *
+		 *  - Seems like dbDelta don't trained to handle index ASC / DESC directives.
 		 *
 		 * @author Vova Feldman (@svovaf)
 		 * @since  1.0.0
 		 */
 		static function create_table() {
-			dbDelta(
+			if ( ! function_exists( 'dbDelta' ) ) {
+				require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+			}
+
+			/**
+			 * NOTE:
+			 *  dbDelta must use KEY and not INDEX for indexes.
+			 *
+			 * @link https://core.trac.wordpress.org/ticket/2695
+			 */
+			$result = dbDelta(
 				'CREATE TABLE ' . self::get_table_name() . ' (
   id BIGINT(20) UNSIGNED NOT NULL,
   namespace VARCHAR(8) NOT NULL,
@@ -60,9 +72,9 @@
   remote_id BIGINT(20) UNSIGNED NOT NULL,
   created DATETIME NOT NULL,
   updated DATETIME NULL,
-  PRIMARY KEY (id),
-  INDEX local_indx (local_id DESC, entity_type DESC, namespace DESC),
-  INDEX remote_indx (remote_id DESC, entity_type DESC, namespace DESC))'
+  PRIMARY KEY  (id),
+  KEY local_indx (local_id,entity_type,namespace),
+  KEY remote_indx (remote_id,entity_type,namespace))'
 			);
 		}
 
