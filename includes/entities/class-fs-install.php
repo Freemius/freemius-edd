@@ -81,6 +81,10 @@
 		 */
 		public $platform_version;
 		/**
+		 * @var string Programming language version (e.g PHP version).
+		 */
+		public $programming_language_version;
+		/**
 		 * @var bool
 		 */
 		public $is_active;
